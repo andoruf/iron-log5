@@ -46,11 +46,25 @@ select,input,button{
   border-radius:12px;
   border:1px solid #d8dee6;
   font-size:16px;
+  transition:all 0.2s ease;
+}
+select:focus,input:focus{
+  outline:none;
+  border-color:#2563eb;
+  box-shadow:0 0 0 3px rgba(37,99,235,.1);
 }
 button{
   border:none;
   font-weight:700;
   cursor:pointer;
+}
+button:hover{
+  opacity:0.9;
+  transform:translateY(-1px);
+  box-shadow:0 4px 12px rgba(0,0,0,.15);
+}
+button:active{
+  transform:translateY(0);
 }
 .primary{background:#2563eb;color:#fff;margin-top:16px}
 .orange{background:#f97316;color:#fff;margin-top:10px}
@@ -72,6 +86,7 @@ button{
   transform:translateY(-50%);
   color:#6b7280;
   font-weight:700;
+  pointer-events:none;
 }
 .inputUnit input{
   padding-right:44px;
@@ -123,6 +138,28 @@ button{
   text-align:center;
   padding:20px;
 }
+.setCount{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-top:12px;
+}
+.setCount button{
+  width:40px;
+  padding:8px;
+  margin:0;
+  font-size:14px;
+}
+.setCount span{
+  flex:1;
+  text-align:center;
+  font-weight:700;
+}
+.error{
+  color:#ef4444;
+  font-size:14px;
+  margin-top:4px;
+}
 </style>
 </head>
 
@@ -154,9 +191,17 @@ button{
         <button class="orange" id="addExerciseBtn">追加</button>
       </div>
 
+      <label>セット数</label>
+      <div class="setCount">
+        <button class="gray" id="decreaseSet">−</button>
+        <span id="setCountDisplay">5</span>
+        <button class="gray" id="increaseSet">＋</button>
+      </div>
+
       <div id="setsArea"></div>
 
       <button class="primary" id="saveBtn">記録する</button>
+      <div id="errorMsg" class="error"></div>
     </div>
   </section>
 
@@ -184,12 +229,15 @@ let exercises = JSON.parse(localStorage.getItem(EXERCISE_KEY)) || [
 ];
 
 let editId = null;
+let currentSetCount = 5;
 
 const dateInput = document.getElementById("date");
 const exerciseSelect = document.getElementById("exercise");
 const setsArea = document.getElementById("setsArea");
 const historyArea = document.getElementById("history");
 const saveBtn = document.getElementById("saveBtn");
+const errorMsg = document.getElementById("errorMsg");
+const setCountDisplay = document.getElementById("setCountDisplay");
 
 dateInput.valueAsDate = new Date();
 
@@ -210,16 +258,16 @@ function renderExercises(){
 
 function renderSets(){
   setsArea.innerHTML = "";
-  for(let i=1;i<=5;i++){
+  for(let i=1;i<=currentSetCount;i++){
     const wrap = document.createElement("div");
     wrap.className = "row";
     wrap.innerHTML = `
       <div class="inputUnit">
-        <input type="number" inputmode="decimal" id="kg${i}" placeholder="${i}セット目 重量">
+        <input type="number" inputmode="decimal" step="0.5" id="kg${i}" placeholder="${i}セット目 重量" min="0">
         <span>kg</span>
       </div>
       <div class="inputUnit">
-        <input type="number" inputmode="numeric" id="rep${i}" placeholder="${i}セット目 回数">
+        <input type="number" inputmode="numeric" id="rep${i}" placeholder="${i}セット目 回数" min="0">
         <span>回</span>
       </div>
     `;
@@ -230,11 +278,34 @@ function renderSets(){
 function clearForm(){
   editId = null;
   saveBtn.textContent = "記録する";
+  currentSetCount = 5;
+  setCountDisplay.textContent = "5";
   dateInput.valueAsDate = new Date();
-  for(let i=1;i<=5;i++){
-    document.getElementById("kg"+i).value = "";
-    document.getElementById("rep"+i).value = "";
+  errorMsg.textContent = "";
+  renderSets();
+}
+
+function validateForm(){
+  errorMsg.textContent = "";
+  
+  if(!exerciseSelect.value){
+    errorMsg.textContent = "種目を選択してください";
+    return false;
   }
+
+  let hasData = false;
+  for(let i=1;i<=currentSetCount;i++){
+    const kg = document.getElementById("kg"+i).value;
+    const rep = document.getElementById("rep"+i).value;
+    if(kg || rep) hasData = true;
+  }
+
+  if(!hasData){
+    errorMsg.textContent = "少なくとも1つのセットを入力してください";
+    return false;
+  }
+
+  return true;
 }
 
 function renderHistory(){
@@ -256,7 +327,7 @@ function renderHistory(){
   Object.keys(grouped).forEach(date=>{
     const dateBox = document.createElement("div");
     dateBox.className = "dateTitle";
-    dateBox.textContent = date;
+    dateBox.textContent = formatDate(date);
     historyArea.appendChild(dateBox);
 
     grouped[date].forEach(record=>{
@@ -282,11 +353,20 @@ function renderHistory(){
   });
 }
 
+function formatDate(dateStr){
+  const date = new Date(dateStr + 'T00:00:00');
+  const options = { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' };
+  return date.toLocaleDateString('ja-JP', options);
+}
+
 document.getElementById("addExerciseBtn").addEventListener("click",()=>{
   const input = document.getElementById("newExercise");
   const name = input.value.trim();
 
-  if(!name) return;
+  if(!name){
+    errorMsg.textContent = "種目名を入力してください";
+    return;
+  }
 
   if(!exercises.includes(name)){
     exercises.push(name);
@@ -296,12 +376,31 @@ document.getElementById("addExerciseBtn").addEventListener("click",()=>{
 
   exerciseSelect.value = name;
   input.value = "";
+  errorMsg.textContent = "";
+});
+
+document.getElementById("increaseSet").addEventListener("click",()=>{
+  if(currentSetCount < 10){
+    currentSetCount++;
+    setCountDisplay.textContent = currentSetCount;
+    renderSets();
+  }
+});
+
+document.getElementById("decreaseSet").addEventListener("click",()=>{
+  if(currentSetCount > 1){
+    currentSetCount--;
+    setCountDisplay.textContent = currentSetCount;
+    renderSets();
+  }
 });
 
 saveBtn.addEventListener("click",()=>{
+  if(!validateForm()) return;
+
   const sets = [];
 
-  for(let i=1;i<=5;i++){
+  for(let i=1;i<=currentSetCount;i++){
     sets.push({
       kg: document.getElementById("kg"+i).value,
       rep: document.getElementById("rep"+i).value
@@ -324,7 +423,7 @@ saveBtn.addEventListener("click",()=>{
   saveStorage();
   clearForm();
   renderHistory();
-  alert("保存しました");
+  alert("保存しまし��");
 });
 
 historyArea.addEventListener("click",(e)=>{
@@ -332,9 +431,11 @@ historyArea.addEventListener("click",(e)=>{
   if(!id) return;
 
   if(e.target.classList.contains("deleteBtn")){
-    records = records.filter(record => record.id !== id);
-    saveStorage();
-    renderHistory();
+    if(confirm("この記録を削除しますか？")){
+      records = records.filter(record => record.id !== id);
+      saveStorage();
+      renderHistory();
+    }
     return;
   }
 
@@ -345,13 +446,17 @@ historyArea.addEventListener("click",(e)=>{
     editId = id;
     dateInput.value = record.date;
     exerciseSelect.value = record.exercise;
+    currentSetCount = Math.max(5, record.sets.length);
+    setCountDisplay.textContent = currentSetCount;
+    renderSets();
 
-    for(let i=1;i<=5;i++){
+    for(let i=1;i<=currentSetCount;i++){
       document.getElementById("kg"+i).value = record.sets[i-1]?.kg || "";
       document.getElementById("rep"+i).value = record.sets[i-1]?.rep || "";
     }
 
     saveBtn.textContent = "更新する";
+    errorMsg.textContent = "";
     showPage("inputPage");
   }
 });
@@ -371,7 +476,9 @@ function showPage(pageId){
     btn.classList.toggle("active", btn.dataset.page === pageId);
   });
 
-  renderHistory();
+  if(pageId === "historyPage"){
+    renderHistory();
+  }
 }
 
 renderExercises();
@@ -379,4 +486,4 @@ renderSets();
 renderHistory();
 </script>
 </body>
-  </html>
+</html>
