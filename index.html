@@ -56,19 +56,35 @@ button{
   color:#fff;
   font-weight:700;
   cursor:pointer;
+  transition:all 0.2s ease;
 }
 
 button:hover{
-  opacity:.95;
+  opacity:.9;
+  transform:translateY(-2px);
+  box-shadow:0 4px 12px rgba(37,99,235,.3);
+}
+
+button:active{
+  transform:translateY(0);
 }
 
 .save-btn{
   background:#16a34a;
 }
 
+.save-btn:hover{
+  box-shadow:0 4px 12px rgba(22,163,74,.3);
+}
+
 .delete-btn{
   background:#ef4444;
   margin-top:14px;
+  width:100%;
+}
+
+.delete-btn:hover{
+  box-shadow:0 4px 12px rgba(239,68,68,.3);
 }
 
 .set-grid{
@@ -83,10 +99,43 @@ button:hover{
   border-radius:14px;
   padding:14px;
   margin-top:12px;
+  animation:slideIn 0.3s ease;
+}
+
+@keyframes slideIn{
+  from{
+    opacity:0;
+    transform:translateY(-10px);
+  }
+  to{
+    opacity:1;
+    transform:translateY(0);
+  }
 }
 
 .small{
   color:#6b7280;
+  font-size:14px;
+}
+
+.success-message{
+  background:#dcfce7;
+  color:#166534;
+  padding:12px;
+  border-radius:12px;
+  margin-bottom:12px;
+  display:none;
+  animation:slideIn 0.3s ease;
+}
+
+.success-message.show{
+  display:block;
+}
+
+.empty-message{
+  color:#9ca3af;
+  text-align:center;
+  padding:20px;
   font-size:14px;
 }
 </style>
@@ -96,12 +145,13 @@ button:hover{
 
 <header>
   <h1>IRON LOG</h1>
-  <p>筋トレメモアプリ 完成版</p>
+  <p>筋トレメモアプリ</p>
 </header>
 
 <main>
 
 <div class="card">
+  <div class="success-message" id="successMessage">✓ 保存しました！</div>
   <h2>種目追加</h2>
 
   <input type="text" id="exerciseName" placeholder="例：ベンチプレス">
@@ -121,13 +171,27 @@ button:hover{
 <script>
 const setsContainer = document.getElementById("sets");
 
+// セット数入力フィールドを生成
 for(let i=1;i<=5;i++){
-  setsContainer.innerHTML += `
-    <div class="set-grid">
-      <input type="number" id="kg${i}" placeholder="${i}セット目 重量(kg)">
-      <input type="number" id="rep${i}" placeholder="${i}セット目 回数">
-    </div>
-  `;
+  const setGrid = document.createElement("div");
+  setGrid.className = "set-grid";
+  
+  const kgInput = document.createElement("input");
+  kgInput.type = "number";
+  kgInput.id = `kg${i}`;
+  kgInput.placeholder = `${i}セット目 重量(kg)`;
+  kgInput.min = "0";
+  kgInput.step = "0.5";
+  
+  const repInput = document.createElement("input");
+  repInput.type = "number";
+  repInput.id = `rep${i}`;
+  repInput.placeholder = `${i}セット目 回数`;
+  repInput.min = "0";
+  
+  setGrid.appendChild(kgInput);
+  setGrid.appendChild(repInput);
+  setsContainer.appendChild(setGrid);
 }
 
 function saveWorkout(){
@@ -141,8 +205,8 @@ function saveWorkout(){
   const sets = [];
 
   for(let i=1;i<=5;i++){
-    const kg = document.getElementById(`kg${i}`).value;
-    const rep = document.getElementById(`rep${i}`).value;
+    const kg = document.getElementById(`kg${i}`).value.trim();
+    const rep = document.getElementById(`rep${i}`).value.trim();
 
     if(kg || rep){
       sets.push({
@@ -152,21 +216,26 @@ function saveWorkout(){
     }
   }
 
+  // セット情報が1つもない場合はエラー
+  if(sets.length === 0){
+    alert("セット情報を1つ以上入力してください");
+    return;
+  }
+
   const data = {
     id:Date.now(),
     exercise,
     sets,
-    date:new Date().toLocaleString()
+    date:new Date().toLocaleString("ja-JP")
   };
 
   const history = JSON.parse(localStorage.getItem("ironlog") || "[]");
-
   history.unshift(data);
-
   localStorage.setItem("ironlog", JSON.stringify(history));
 
   clearInputs();
   renderHistory();
+  showSuccessMessage();
 }
 
 function clearInputs(){
@@ -179,50 +248,73 @@ function clearInputs(){
 }
 
 function deleteWorkout(id){
+  if(!confirm("この記録を削除しますか？")){
+    return;
+  }
+
   const history = JSON.parse(localStorage.getItem("ironlog") || "[]");
-
   const newHistory = history.filter(item => item.id !== id);
-
   localStorage.setItem("ironlog", JSON.stringify(newHistory));
-
   renderHistory();
 }
 
 function renderHistory(){
   const historyEl = document.getElementById("history");
-
   const history = JSON.parse(localStorage.getItem("ironlog") || "[]");
 
   if(history.length === 0){
-    historyEl.innerHTML = '<p class="small">まだ記録がありません。</p>';
+    const emptyMsg = document.createElement("div");
+    emptyMsg.className = "empty-message";
+    emptyMsg.textContent = "まだ記録がありません。";
+    historyEl.innerHTML = "";
+    historyEl.appendChild(emptyMsg);
     return;
   }
 
   historyEl.innerHTML = "";
 
   history.forEach(item => {
+    const historyItem = document.createElement("div");
+    historyItem.className = "history-item";
 
-    const setsHtml = item.sets.map((set,index)=>`
-      <div class="small">
-        ${index+1}セット目： ${set.kg}kg × ${set.rep}回
-      </div>
-    `).join("");
+    const title = document.createElement("strong");
+    title.textContent = item.exercise;
 
-    historyEl.innerHTML += `
-      <div class="history-item">
-        <strong>${item.exercise}</strong><br>
-        <span class="small">${item.date}</span>
+    const date = document.createElement("div");
+    date.className = "small";
+    date.textContent = item.date;
 
-        <div style="margin-top:10px">
-          ${setsHtml}
-        </div>
+    const setsDiv = document.createElement("div");
+    setsDiv.style.marginTop = "10px";
 
-        <button class="delete-btn" onclick="deleteWorkout(${item.id})">
-          削除
-        </button>
-      </div>
-    `;
+    item.sets.forEach((set, index) => {
+      const setInfo = document.createElement("div");
+      setInfo.className = "small";
+      setInfo.textContent = `${index + 1}セット目： ${set.kg}kg × ${set.rep}回`;
+      setsDiv.appendChild(setInfo);
+    });
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.className = "delete-btn";
+    deleteBtn.textContent = "削除";
+    deleteBtn.onclick = () => deleteWorkout(item.id);
+
+    historyItem.appendChild(title);
+    historyItem.appendChild(document.createElement("br"));
+    historyItem.appendChild(date);
+    historyItem.appendChild(setsDiv);
+    historyItem.appendChild(deleteBtn);
+
+    historyEl.appendChild(historyItem);
   });
+}
+
+function showSuccessMessage(){
+  const message = document.getElementById("successMessage");
+  message.classList.add("show");
+  setTimeout(() => {
+    message.classList.remove("show");
+  }, 2000);
 }
 
 renderHistory();
