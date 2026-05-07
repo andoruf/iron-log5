@@ -13,6 +13,7 @@ body{
   font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   background:#f4f6f8;
   color:#17202a;
+  overflow:hidden;
 }
 
 header{
@@ -21,12 +22,37 @@ header{
   padding:24px;
   text-align:center;
   box-shadow:0 4px 16px rgba(0,0,0,.12);
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+
+header h1{
+  margin:0;
+  flex:1;
+  text-align:center;
+}
+
+.menu-btn{
+  background:none;
+  border:none;
+  color:#fff;
+  font-size:24px;
+  cursor:pointer;
+  padding:0;
+  width:40px;
+  height:40px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
 }
 
 main{
   max-width:760px;
   margin:auto;
   padding:16px;
+  height:calc(100vh - 120px);
+  overflow-y:auto;
 }
 
 .card{
@@ -113,6 +139,24 @@ button:active{
   }
 }
 
+@keyframes slideInRight{
+  from{
+    transform:translateX(100%);
+  }
+  to{
+    transform:translateX(0);
+  }
+}
+
+@keyframes slideOutRight{
+  from{
+    transform:translateX(0);
+  }
+  to{
+    transform:translateX(100%);
+  }
+}
+
 .small{
   color:#6b7280;
   font-size:14px;
@@ -138,14 +182,139 @@ button:active{
   padding:20px;
   font-size:14px;
 }
+
+.exercise-btn{
+  background:#f3f4f6;
+  color:#17202a;
+  border:1px solid #e5e7eb;
+  margin:6px 0;
+  padding:10px;
+  border-radius:10px;
+  font-weight:500;
+  transition:all 0.2s ease;
+}
+
+.exercise-btn:hover{
+  background:#e5e7eb;
+  box-shadow:0 2px 8px rgba(0,0,0,.1);
+  transform:none;
+}
+
+.exercise-list{
+  margin-top:12px;
+  max-height:120px;
+  overflow-y:auto;
+}
+
+/* ドロワーオーバーレイ */
+.drawer-overlay{
+  position:fixed;
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
+  background:rgba(0,0,0,.5);
+  display:none;
+  z-index:99;
+  animation:fadeIn 0.3s ease;
+}
+
+.drawer-overlay.show{
+  display:block;
+}
+
+@keyframes fadeIn{
+  from{opacity:0}
+  to{opacity:1}
+}
+
+/* ドロワー */
+.drawer{
+  position:fixed;
+  right:0;
+  top:0;
+  width:80%;
+  max-width:400px;
+  height:100%;
+  background:#fff;
+  box-shadow:-4px 0 16px rgba(0,0,0,.2);
+  z-index:100;
+  transform:translateX(100%);
+  transition:transform 0.3s ease;
+  display:flex;
+  flex-direction:column;
+  overflow-y:auto;
+}
+
+.drawer.show{
+  transform:translateX(0);
+}
+
+.drawer-header{
+  background:#2563eb;
+  color:#fff;
+  padding:16px;
+  font-weight:700;
+  font-size:18px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+
+.close-btn{
+  background:none;
+  border:none;
+  color:#fff;
+  font-size:24px;
+  cursor:pointer;
+  padding:0;
+  width:40px;
+  height:40px;
+}
+
+.drawer-content{
+  flex:1;
+  padding:16px;
+  overflow-y:auto;
+}
+
+.drawer-item{
+  border:1px solid #e5e7eb;
+  border-radius:14px;
+  padding:14px;
+  margin-bottom:12px;
+  animation:slideIn 0.3s ease;
+}
+
+.drawer-item strong{
+  display:block;
+  margin-bottom:8px;
+}
+
+.drawer-item .small{
+  display:block;
+  margin-bottom:8px;
+}
+
+.drawer-item-sets{
+  background:#f9fafb;
+  padding:8px;
+  border-radius:8px;
+  margin:8px 0;
+  font-size:13px;
+}
 </style>
 </head>
 
 <body>
 
 <header>
-  <h1>IRON LOG</h1>
-  <p>筋トレメモアプリ</p>
+  <div style="width:40px"></div>
+  <div>
+    <h1>IRON LOG</h1>
+    <p style="margin:0;font-size:12px">筋トレメモアプリ</p>
+  </div>
+  <button class="menu-btn" onclick="openDrawer()">☰</button>
 </header>
 
 <main>
@@ -156,17 +325,26 @@ button:active{
 
   <input type="text" id="exerciseName" placeholder="例：ベンチプレス">
 
+  <div class="exercise-list" id="exerciseList"></div>
+
   <div id="sets"></div>
 
   <button class="save-btn" onclick="saveWorkout()">保存</button>
 </div>
 
-<div class="card">
-  <h2>履歴</h2>
-  <div id="history"></div>
-</div>
-
 </main>
+
+<!-- ドロワーオーバーレイ -->
+<div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
+
+<!-- ドロワー -->
+<div class="drawer" id="drawer">
+  <div class="drawer-header">
+    履歴
+    <button class="close-btn" onclick="closeDrawer()">✕</button>
+  </div>
+  <div class="drawer-content" id="historyDrawer"></div>
+</div>
 
 <script>
 const setsContainer = document.getElementById("sets");
@@ -216,7 +394,6 @@ function saveWorkout(){
     }
   }
 
-  // セット情報が1つもない場合はエラー
   if(sets.length === 0){
     alert("セット情報を1つ以上入力してください");
     return;
@@ -234,6 +411,7 @@ function saveWorkout(){
   localStorage.setItem("ironlog", JSON.stringify(history));
 
   clearInputs();
+  renderExerciseList();
   renderHistory();
   showSuccessMessage();
 }
@@ -256,10 +434,11 @@ function deleteWorkout(id){
   const newHistory = history.filter(item => item.id !== id);
   localStorage.setItem("ironlog", JSON.stringify(newHistory));
   renderHistory();
+  renderExerciseList();
 }
 
 function renderHistory(){
-  const historyEl = document.getElementById("history");
+  const historyEl = document.getElementById("historyDrawer");
   const history = JSON.parse(localStorage.getItem("ironlog") || "[]");
 
   if(history.length === 0){
@@ -274,8 +453,8 @@ function renderHistory(){
   historyEl.innerHTML = "";
 
   history.forEach(item => {
-    const historyItem = document.createElement("div");
-    historyItem.className = "history-item";
+    const drawerItem = document.createElement("div");
+    drawerItem.className = "drawer-item";
 
     const title = document.createElement("strong");
     title.textContent = item.exercise;
@@ -285,11 +464,10 @@ function renderHistory(){
     date.textContent = item.date;
 
     const setsDiv = document.createElement("div");
-    setsDiv.style.marginTop = "10px";
+    setsDiv.className = "drawer-item-sets";
 
     item.sets.forEach((set, index) => {
       const setInfo = document.createElement("div");
-      setInfo.className = "small";
       setInfo.textContent = `${index + 1}セット目： ${set.kg}kg × ${set.rep}回`;
       setsDiv.appendChild(setInfo);
     });
@@ -297,27 +475,67 @@ function renderHistory(){
     const deleteBtn = document.createElement("button");
     deleteBtn.className = "delete-btn";
     deleteBtn.textContent = "削除";
+    deleteBtn.style.marginTop = "8px";
     deleteBtn.onclick = () => deleteWorkout(item.id);
 
-    historyItem.appendChild(title);
-    historyItem.appendChild(document.createElement("br"));
-    historyItem.appendChild(date);
-    historyItem.appendChild(setsDiv);
-    historyItem.appendChild(deleteBtn);
+    drawerItem.appendChild(title);
+    drawerItem.appendChild(date);
+    drawerItem.appendChild(setsDiv);
+    drawerItem.appendChild(deleteBtn);
 
-    historyEl.appendChild(historyItem);
+    historyEl.appendChild(drawerItem);
   });
 }
 
-function showSuccessMessage(){
-  const message = document.getElementById("successMessage");
-  message.classList.add("show");
-  setTimeout(() => {
-    message.classList.remove("show");
-  }, 2000);
+function renderExerciseList(){
+  const listEl = document.getElementById("exerciseList");
+  const history = JSON.parse(localStorage.getItem("ironlog") || "[]");
+
+  // 種目名を集計
+  const exerciseMap = {};
+  history.forEach(item => {
+    if(!exerciseMap[item.exercise]){
+      exerciseMap[item.exercise] = 0;
+    }
+    exerciseMap[item.exercise]++;
+  });
+
+  // 使用回数でソート
+  const sortedExercises = Object.entries(exerciseMap)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(entry => entry[0]);
+
+  if(sortedExercises.length === 0){
+    listEl.innerHTML = "";
+    return;
+  }
+
+  listEl.innerHTML = "<div class='small' style='margin-bottom:8px;color:#9ca3af'>最近の種目：</div>";
+
+  sortedExercises.forEach(exercise => {
+    const btn = document.createElement("button");
+    btn.className = "exercise-btn";
+    btn.textContent = exercise;
+    btn.onclick = () => {
+      document.getElementById("exerciseName").value = exercise;
+    };
+    listEl.appendChild(btn);
+  });
+}
+
+function openDrawer(){
+  document.getElementById("drawer").classList.add("show");
+  document.getElementById("drawerOverlay").classList.add("show");
+}
+
+function closeDrawer(){
+  document.getElementById("drawer").classList.remove("show");
+  document.getElementById("drawerOverlay").classList.remove("show");
 }
 
 renderHistory();
+renderExerciseList();
 </script>
 
 </body>
