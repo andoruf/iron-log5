@@ -524,6 +524,14 @@ function renderExerciseList(){
   });
 }
 
+function showSuccessMessage(){
+  const msg = document.getElementById("successMessage");
+  msg.classList.add("show");
+  setTimeout(() => {
+    msg.classList.remove("show");
+  }, 2000);
+}
+
 function openDrawer(){
   document.getElementById("drawer").classList.add("show");
   document.getElementById("drawerOverlay").classList.add("show");
