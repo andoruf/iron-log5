@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IRON LOG</title>
+
+<style>
+*{box-sizing:border-box}
+
+body{
+  margin:0;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  background:#f4f6f8;
+  color:#17202a;
+}
+
+header{
+  background:#2563eb;
+  color:#fff;
+  padding:24px;
+  text-align:center;
+  box-shadow:0 4px 16px rgba(0,0,0,.12);
+}
+
+main{
+  max-width:760px;
+  margin:auto;
+  padding:16px;
+}
+
+.card{
+  background:#fff;
+  border-radius:18px;
+  padding:18px;
+  margin-bottom:16px;
+  box-shadow:0 8px 24px rgba(15,23,42,.08);
+}
+
+h2{
+  margin-top:0;
+}
+
+input,button{
+  width:100%;
+  padding:12px;
+  border-radius:12px;
+  border:1px solid #d1d5db;
+  margin-top:10px;
+  font-size:16px;
+}
+
+button{
+  border:none;
+  background:#2563eb;
+  color:#fff;
+  font-weight:700;
+  cursor:pointer;
+}
+
+button:hover{
+  opacity:.95;
+}
+
+.save-btn{
+  background:#16a34a;
+}
+
+.delete-btn{
+  background:#ef4444;
+  margin-top:14px;
+}
+
+.set-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  margin-top:12px;
+}
+
+.history-item{
+  border:1px solid #e5e7eb;
+  border-radius:14px;
+  padding:14px;
+  margin-top:12px;
+}
+
+.small{
+  color:#6b7280;
+  font-size:14px;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <h1>IRON LOG</h1>
+  <p>筋トレメモアプリ 完成版</p>
+</header>
+
+<main>
+
+<div class="card">
+  <h2>種目追加</h2>
+
+  <input type="text" id="exerciseName" placeholder="例：ベンチプレス">
+
+  <div id="sets"></div>
+
+  <button class="save-btn" onclick="saveWorkout()">保存</button>
+</div>
+
+<div class="card">
+  <h2>履歴</h2>
+  <div id="history"></div>
+</div>
+
+</main>
+
+<script>
+const setsContainer = document.getElementById("sets");
+
+for(let i=1;i<=5;i++){
+  setsContainer.innerHTML += `
+    <div class="set-grid">
+      <input type="number" id="kg${i}" placeholder="${i}セット目 重量(kg)">
+      <input type="number" id="rep${i}" placeholder="${i}セット目 回数">
+    </div>
+  `;
+}
+
+function saveWorkout(){
+  const exercise = document.getElementById("exerciseName").value.trim();
+
+  if(!exercise){
+    alert("種目名を入力してください");
+    return;
+  }
+
+  const sets = [];
+
+  for(let i=1;i<=5;i++){
+    const kg = document.getElementById(`kg${i}`).value;
+    const rep = document.getElementById(`rep${i}`).value;
+
+    if(kg || rep){
+      sets.push({
+        kg:kg || "-",
+        rep:rep || "-"
+      });
+    }
+  }
+
+  const data = {
+    id:Date.now(),
+    exercise,
+    sets,
+    date:new Date().toLocaleString()
+  };
+
+  const history = JSON.parse(localStorage.getItem("ironlog") || "[]");
+
+  history.unshift(data);
+
+  localStorage.setItem("ironlog", JSON.stringify(history));
+
+  clearInputs();
+  renderHistory();
+}
+
+function clearInputs(){
+  document.getElementById("exerciseName").value="";
+
+  for(let i=1;i<=5;i++){
+    document.getElementById(`kg${i}`).value="";
+    document.getElementById(`rep${i}`).value="";
+  }
+}
+
+function deleteWorkout(id){
+  const history = JSON.parse(localStorage.getItem("ironlog") || "[]");
+
+  const newHistory = history.filter(item => item.id !== id);
+
+  localStorage.setItem("ironlog", JSON.stringify(newHistory));
+
+  renderHistory();
+}
+
+function renderHistory(){
+  const historyEl = document.getElementById("history");
+
+  const history = JSON.parse(localStorage.getItem("ironlog") || "[]");
+
+  if(history.length === 0){
+    historyEl.innerHTML = '<p class="small">まだ記録がありません。</p>';
+    return;
+  }
+
+  historyEl.innerHTML = "";
+
+  history.forEach(item => {
+
+    const setsHtml = item.sets.map((set,index)=>`
+      <div class="small">
+        ${index+1}セット目： ${set.kg}kg × ${set.rep}回
+      </div>
+    `).join("");
+
+    historyEl.innerHTML += `
+      <div class="history-item">
+        <strong>${item.exercise}</strong><br>
+        <span class="small">${item.date}</span>
+
+        <div style="margin-top:10px">
+          ${setsHtml}
+        </div>
+
+        <button class="delete-btn" onclick="deleteWorkout(${item.id})">
+          削除
+        </button>
+      </div>
+    `;
+  });
+}
+
+renderHistory();
+</script>
+
+</body>
+</html>
